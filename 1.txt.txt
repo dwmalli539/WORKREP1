@@ -1,0 +1,27 @@
+#!/bin/sh
+
+source /svc_home/svc_odidev/odi/DEV_AGG/mir_bpp_agg.config
+
+export SPARK_HOME=$SPARK_HOME_RUN
+export PYTHONPATH=$PYTHONPATH_RUN
+export ORACLE_HOME=$ORACLE_HOME_RUN
+export LD_LIBRARY_PATH=$ORACLE_HOME/lib
+export HOME=/svc_home/svc_odidev/odi/DEV_AGG
+
+
+#principal=$(klist -kt ~/.kt | awk '{print $4}' | uniq | grep -Ev '^$' )
+#kinit -kt $HOME/.kt $principal 
+
+principal=$(klist -kt /svc_home/svc_odidev/odi/svc_odidev.keytab | awk '{print $4}' | uniq | grep -Ev '^$' )
+kinit -kt /svc_home/svc_odidev/odi/svc_odidev.keytab $principal
+
+nohup spark2-submit --master yarn --deploy-mode client \
+    --executor-cores $EXECUTOR_CORES --driver-cores 2 --driver-memory 5g --executor-memory $EXECUTOR_MEMORY \
+    --jars /svc_home/svc_odidev/jar/ojdbc7.jar \
+    --conf spark.driver.extraClassPath=/etc/hive/conf:/svc_home/svc_odidev/jar/ojdbc7.jar \
+    --driver-class-path /etc/spark2/conf:/etc/hive/conf:/svc_home/svc_odidev/jar/ojdbc7.jar \
+    --conf spark.executor.extraClassPath=/etc/spark2/conf:/etc/hive/conf \
+    --conf yarn.resourcemanager.am.max-attempts=1 \
+    --conf spark.ui.showConsoleProgress=false \
+   $HOME/mir_bpp_agg.py $1 $2 $USER 2>&1 > /svc_home/svc_odidev/odi/log/mir_bpp_agg_$2.log &
+wait
